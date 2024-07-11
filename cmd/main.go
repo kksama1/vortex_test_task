@@ -10,8 +10,8 @@ import (
 
 func main() {
 
-	db := postgres.CreateConnection()
-	log.Println(db)
+	_ = postgres.CreateConnection()
+	//log.Println()
 	c := cron.New()
 	c.AddFunc("@every 10s", func() {
 		log.Println("Crone doing smth")

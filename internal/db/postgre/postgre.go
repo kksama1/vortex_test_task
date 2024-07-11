@@ -42,5 +42,21 @@ func CreateConnection() *sql.DB {
 	} else {
 		log.Println("Connected to postgres!")
 	}
+
+	rows, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
+	if err != nil {
+		panic(err)
+	}
+
+	defer rows.Close()
+	// Чтение результатов запроса
+	for rows.Next() {
+		var tableName string
+		err := rows.Scan(&tableName)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	return db
 }

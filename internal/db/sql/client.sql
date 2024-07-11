@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS clients (
+    ID SERIAL PRIMARY KEY,
+    ClientName VARCHAR(255),
+    Version INT,
+    Image VARCHAR(255),
+    CPU VARCHAR(50),
+    Memory VARCHAR(50),
+    Priority FLOAT,
+    NeedRestart BOOLEAN,
+    SpawnedAt TIMESTAMP,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
