@@ -3,16 +3,23 @@ services:
     image: postgres
     restart: always
     environment:
-      POSTGRES_USER: your_username
-      POSTGRES_PASSWORD: your_password
-      POSTGRES_DB: your_database_name
+      POSTGRES_USER: "kksama"
+      POSTGRES_PASSWORD: "kksama1"
+      POSTGRES_DB: "vortexTaskDB"
+    networks:
+      - mynetwork
+
 
   app:
     build: .
+    depends_on:
+      - postgres
+    restart: always
     ports:
       - "8080:8080"
     networks:
       - mynetwork
+
 
 networks:
   mynetwork:
