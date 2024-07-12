@@ -4,34 +4,41 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
+	postgres "vortex/internal/db/postgre"
 	"vortex/internal/model"
 )
 
 func UpdateClient(w http.ResponseWriter, r *http.Request) {
 	log.Print("UpdateClient:\t")
 	var client model.Client
-	var found = false
+	//var found = false
 	if err := json.NewDecoder(r.Body).Decode(&client); err != nil {
 		log.Println("err during encoding body: ", err)
 	}
-	for i := range Clients {
-		if Clients[i].ID == client.ID {
-			Clients[i].ClientName = client.ClientName
-			Clients[i].Version = client.Version
-			Clients[i].Image = client.Image
-			Clients[i].CPU = client.CPU
-			Clients[i].Memory = client.Memory
-			Clients[i].Priority = client.Priority
-			Clients[i].NeedRestart = client.NeedRestart
-			Clients[i].UpdatedAt = time.Now()
-			found = true
-		}
+	//for i := range Clients {
+	//	if Clients[i].ID == client.ID {
+	//		Clients[i].ClientName = client.ClientName
+	//		Clients[i].Version = client.Version
+	//		Clients[i].Image = client.Image
+	//		Clients[i].CPU = client.CPU
+	//		Clients[i].Memory = client.Memory
+	//		Clients[i].Priority = client.Priority
+	//		Clients[i].NeedRestart = client.NeedRestart
+	//		Clients[i].UpdatedAt = time.Now()
+	//		found = true
+	//	}
+	//}
+	if err := postgres.UpdateClient(&client); err != nil {
+		log.Println(err)
 	}
-	if found == false {
-		return
+	_, err := postgres.GetAllClients()
+	if err != nil {
+		log.Println(err)
 	}
-	for i := range Clients {
-		log.Println(Clients[i])
-	}
+	//if found == false {
+	//	return
+	//}
+	//for i := range Clients {
+	//	log.Println(Clients[i])
+	//}
 }

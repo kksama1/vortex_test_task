@@ -12,13 +12,13 @@ services:
 
   app:
     build: .
-    depends_on:
-      - postgres
-    restart: always
+#    restart: always
     ports:
       - "8080:8080"
     networks:
       - mynetwork
+    depends_on:
+      - postgres
 
 
 networks:

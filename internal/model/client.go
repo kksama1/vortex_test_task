@@ -1,6 +1,8 @@
 package model
 
-import "time"
+import (
+	"time"
+)
 
 type Client struct {
 	ID          int64     `json:"id"`
@@ -14,4 +16,20 @@ type Client struct {
 	SpawnedAt   time.Time `json:"spawnedAt"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+func NewClient(client Client) *Client {
+	return &Client{
+		ID:          client.ID,
+		ClientName:  client.ClientName,
+		Version:     client.Version,
+		Image:       client.Image,
+		CPU:         client.CPU,
+		Memory:      client.Memory,
+		Priority:    client.Priority,
+		NeedRestart: client.NeedRestart,
+		SpawnedAt:   time.Now(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
 }
