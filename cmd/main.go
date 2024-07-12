@@ -10,6 +10,7 @@ import (
 
 func main() {
 	//db := postgres.createConnection()
+	defer postgres.Db.Close()
 	postgres.DropAll()
 	postgres.GetTables()
 	postgres.SetUpDB()

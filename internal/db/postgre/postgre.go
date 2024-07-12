@@ -27,7 +27,7 @@ type pgInfo struct {
 	password string
 }
 
-// createConnection performs connection to db.
+// createConnection performs connection to Db.
 func createConnection() *sql.DB {
 
 	ci := pgInfo{host: host, port: port, database: database, username: username, password: password}
@@ -35,10 +35,16 @@ func createConnection() *sql.DB {
 		"password=%s dbname=%s sslmode=disable",
 		ci.host, ci.port, ci.username, ci.password, ci.database)
 	db, err := sql.Open("postgres", psqlInfo)
-
 	if err != nil {
 		panic(err)
 	}
+
+	// Установка максимального количества открытых соединений
+	db.SetMaxOpenConns(15)
+	// Установка максимального количества соединений в пуле
+	db.SetMaxIdleConns(5)
+	// Установка максимального времени жизни соединения в пуле
+	db.SetConnMaxLifetime(time.Minute * 5)
 
 	err = db.Ping()
 	if err != nil {
@@ -50,9 +56,9 @@ func createConnection() *sql.DB {
 	return db
 }
 
+var Db = createConnection()
+
 func SetUpDB() {
-	db := createConnection()
-	defer db.Close()
 	sqlFile, err := os.Open("/usr/local/src/db/sql/client.sql")
 	if err != nil {
 		panic(err)
@@ -66,7 +72,7 @@ func SetUpDB() {
 
 	createTableQuery := string(sqlBytes)
 
-	_, err = db.Exec(createTableQuery)
+	_, err = Db.Exec(createTableQuery)
 	if err != nil {
 		panic(err)
 	}
@@ -83,21 +89,19 @@ func SetUpDB() {
 
 	createTableQuery = string(sqlBytes)
 
-	_, err = db.Exec(createTableQuery)
+	_, err = Db.Exec(createTableQuery)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func GetTables() {
-	db := createConnection()
-	defer db.Close()
-	rows, err := db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
+	rows, err := Db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
 	if err != nil {
 		panic(err)
 	}
-
 	defer rows.Close()
+
 	// Чтение результатов запроса
 	for rows.Next() {
 		var tableName string
@@ -111,8 +115,6 @@ func GetTables() {
 }
 
 func AddClient(client *model.Client) error {
-	db := createConnection()
-	defer db.Close()
 	//query := `INSERT INTO clients(clientName, version, image, cpu, memory, priority, needRestart,
 	//                spawnedAt, createdAt, updatedAt)
 	//values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
@@ -127,7 +129,7 @@ func AddClient(client *model.Client) error {
 	FROM inserted_client;
 `
 
-	_, err := db.Query(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
+	_, err := Db.Exec(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
 		client.Priority, client.NeedRestart)
 	if err != nil {
 		return fmt.Errorf("error inserting client: %v", err)
@@ -138,10 +140,8 @@ func AddClient(client *model.Client) error {
 
 func GetAllClients() ([]model.Client, error) {
 	log.Println("postges.GetAllClients")
-	db := createConnection()
-	defer db.Close()
 	var clients []model.Client
-	rows, err := db.Query("SELECT * FROM clients")
+	rows, err := Db.Query("SELECT * FROM clients")
 	if err != nil {
 		log.Println("SELECT ERR")
 		return nil, err
@@ -164,11 +164,9 @@ func GetAllClients() ([]model.Client, error) {
 
 func GetAllAlgorithms() error {
 	log.Println("GetAllAlgorithms")
-	db := createConnection()
-	defer db.Close()
 	var algorithms []model.Algorithm
 
-	rows, err := db.Query("SELECT * FROM algorithm_status")
+	rows, err := Db.Query("SELECT * FROM algorithm_status")
 	if err != nil {
 		log.Println("SELECT ERR")
 		return err
@@ -190,12 +188,10 @@ func GetAllAlgorithms() error {
 
 func UpdateClient(client *model.Client) error {
 	log.Println("UpdateClient")
-	db := createConnection()
-	defer db.Close()
 	query := `UPDATE clients SET clientName=$1, version=$2, image=$3, cpu=$4,
                    memory=$5, priority=$6, needRestart=$7, updatedAt=$8 WHERE id=$9`
 	log.Println("Updated")
-	_, err := db.Exec(query,
+	_, err := Db.Exec(query,
 		client.ClientName, client.Version, client.Image, client.CPU, client.Memory, client.Priority, client.NeedRestart,
 		time.Now(), client.ID)
 	if err != nil {
@@ -207,12 +203,10 @@ func UpdateClient(client *model.Client) error {
 
 func UpdateAlgorithmStatus(algorithm model.Algorithm) error {
 	log.Println("UpdateAlgorithmStatus")
-	db := createConnection()
-	defer db.Close()
 	query := `
 	UPDATE algorithm_status SET vwap=$1, twap=$2, hft=$3 WHERE clientID=$4
 	`
-	_, err := db.Exec(query,
+	_, err := Db.Exec(query,
 		algorithm.VWAP, algorithm.TWAP, algorithm.HFT, algorithm.ClientID)
 	if err != nil {
 		log.Println(err)
@@ -223,12 +217,10 @@ func UpdateAlgorithmStatus(algorithm model.Algorithm) error {
 
 func DeleteClient(client *model.Client) error {
 	log.Println("DeleteClient")
-	db := createConnection()
-	defer db.Close()
 	query := `
 		DELETE FROM clients WHERE id = $1;
 	`
-	_, err := db.Exec(query, client.ID)
+	_, err := Db.Exec(query, client.ID)
 	if err != nil {
 		log.Fatal(err)
 		return err
@@ -236,23 +228,20 @@ func DeleteClient(client *model.Client) error {
 	return nil
 }
 
-func GetActiveAlgorithms() {
-	log.Println("DeleteClient")
-	db := createConnection()
-	defer db.Close()
-	query := `
-		SELECT * FROM algorithm_status WHERE VHAP = TRUE OR TWAP = TRUE OR HFT = TRUE;
-	`
-}
+//func GetActiveAlgorithms() {
+//	log.Println("DeleteClient")
+//	query := `
+//		SELECT * FROM algorithm_status WHERE VHAP = TRUE OR TWAP = TRUE OR HFT = TRUE;
+//	`
+//}
 
 func DropAll() {
-	db := createConnection()
-	_, err := db.Exec("DROP TABLE algorithm_status")
+	_, err := Db.Exec("DROP TABLE algorithm_status")
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	_, err = db.Exec("DROP TABLE clients")
+	_, err = Db.Exec("DROP TABLE clients")
 	if err != nil {
 		log.Println(err)
 		return
