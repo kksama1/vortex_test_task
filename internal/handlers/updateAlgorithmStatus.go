@@ -4,20 +4,21 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	postgres "vortex/internal/db/postgre"
 	"vortex/internal/model"
 )
 
-func UpdateAlgorithmStatus(w http.ResponseWriter, r *http.Request) {
-	log.Print("AddClient:\t")
+func (s *Service) UpdateAlgorithmStatus(w http.ResponseWriter, r *http.Request) {
 	var Algorithm model.Algorithm
+
 	if err := json.NewDecoder(r.Body).Decode(&Algorithm); err != nil {
 		log.Println("err during encoding body: ", err)
+		return
 	}
-	if err := postgres.UpdateAlgorithmStatus(Algorithm); err != nil {
+
+	if err := s.DB.UpdateAlgorithmStatus(Algorithm); err != nil {
 		log.Println(err)
+		return
 	}
-	if err := postgres.GetAllAlgorithms(); err != nil {
-		log.Println(err)
-	}
+
+	log.Println("Algorithm status updated")
 }

@@ -21,5 +21,6 @@ COPY --from=builder /usr/loclal/src/bin/app /
 
 COPY src/sql/algorithm.sql /usr/local/src/db/sql/
 COPY src/sql/client.sql /usr/local/src/db/sql/
+COPY .env  /
 
 CMD ["/app"]
