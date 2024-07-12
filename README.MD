@@ -72,33 +72,34 @@ HFT         bool
 После этого в docker будут развёрнуты два контейнера. Один с приложением на go и второй с базой данных postgres.
 База данных состоит из двух таблиц: "clients" и "algorithm_status". Ниже приведён sql-запрос для их создания:<br>
 ```sql
-CREATE TABLE IF NOT EXISTS clients (
-ID SERIAL PRIMARY KEY,
-ClientName VARCHAR(255),
-Version INT,
-Image VARCHAR(255),
-CPU VARCHAR(50),
-Memory VARCHAR(50),
-Priority FLOAT,
-NeedRestart BOOLEAN,
-SpawnedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    CREATE TABLE IF NOT EXISTS clients (
+    ID SERIAL PRIMARY KEY,
+    ClientName VARCHAR(255),
+    Version INT,
+    Image VARCHAR(255),
+    CPU VARCHAR(50),
+    Memory VARCHAR(50),
+    Priority FLOAT,
+    NeedRestart BOOLEAN,
+    SpawnedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UpdatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 
 ```sql
-CREATE TABLE IF NOT EXISTS algorithm_status (
-ID SERIAL PRIMARY KEY,
-ClientID INTEGER UNIQUE references clients(ID)  ON DELETE CASCADE,
-VWAP BOOLEAN DEFAULT FALSE,
-TWAP BOOLEAN DEFAULT FALSE,
-HFT BOOLEAN DEFAULT FALSE
+    CREATE TABLE IF NOT EXISTS algorithm_status (
+    ID SERIAL PRIMARY KEY,
+    ClientID INTEGER UNIQUE references clients(ID)  ON DELETE CASCADE,
+    VWAP BOOLEAN DEFAULT FALSE,
+    TWAP BOOLEAN DEFAULT FALSE,
+    HFT BOOLEAN DEFAULT FALSE
 );
 ```
 Для взаимодействия пользователя с сервисом предусмотрены 4 api "ручки":
-<ol><br> <li><b>AddClient</b></li>
+<ol><li><b>AddClient</b></li>
 К этой "ручке" можно обратиться по адресу: http://localhost:8080/AddClient. Она отправляет POST-запрос сервису на добавление нового клиента. Для того чтобы отправить данные на добавление, необходимо поместить в тело запроса json следующего формата:
+
 ```json
 {
     "clientName": "Cena",
@@ -115,6 +116,7 @@ HFT BOOLEAN DEFAULT FALSE
 
 <li><b>UpdateClient</b></li>
 К этой "ручке" можно обратиться по адресу: http://localhost:8080/UpdateClient. Она отправляет POST-запрос сервису на изменение записи об определённом клиeнте. Для того чтобы отправить данные на добавление, необходимо поместить в тело запроса json следующего формата:<br>
+
 ```json
 {
     "id": 2,
@@ -130,6 +132,7 @@ HFT BOOLEAN DEFAULT FALSE
 
 <li><b>DeleteClient</b></li>
 К этой "ручке" можно обратиться по адресу: http://localhost:8080/DeleteClient. Она отправляет POST-запрос сервису на удаление заданного пользователя из базы данных клиентов и удалит его запись в таблице алгоритмов. Для того чтобы отправить данные на добавление, необходимо поместить в тело запроса json следующего формата:
+
 ```json
 {
     "id": 2
@@ -137,6 +140,7 @@ HFT BOOLEAN DEFAULT FALSE
 ```
 <li><b>UpdateAlgorithmStatus</b></li>
 К этой "ручке" можно обратиться по адресу: http://localhost:8080/UpdateAlgorithmStatus. Она отправляет POST-запрос сервису на изменение статуса алгоритма принадлежащего определенному пользователю. Пользователь может поменять значение полей VWAP, TWAP, HFT. Для того чтобы отправить данные на добавление, необходимо поместить в тело запроса json следующего формата:
+
 ```json
 {
 "clientID":2,
@@ -148,3 +152,6 @@ HFT BOOLEAN DEFAULT FALSE
 </ol>
 Так же сервис каждые 5 минут проверяет статусы алгоритмов и если алгоритм включен, то создаёт pod с названием соответствующим уникальному идентификатору пользователя, если алгоритм выключен, то удаляет соответствующий pod.
 Каждые пять минут можно увидеть список активных и не активных подов в виде логов в докер-контейнере приложения. Так же там легируется сообщеия, что пользователь был добавлен, была изменена или удалена его запись, изменения состояния алгоритмов и сообщения о создании или удалении подов.
+
+### На рисунке ниже показан результат нагрузочного тестирования (300 итераций, задержка 1ms)
+![результат нагрузочного тестирования](src/png/rps.png)
