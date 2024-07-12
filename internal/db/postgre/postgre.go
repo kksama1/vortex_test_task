@@ -205,6 +205,22 @@ func UpdateClient(client *model.Client) error {
 	return nil
 }
 
+func UpdateAlgorithmStatus(algorithm model.Algorithm) error {
+	log.Println("UpdateAlgorithmStatus")
+	db := createConnection()
+	defer db.Close()
+	query := `
+	UPDATE algorithm_status SET vwap=$1, twap=$2, hft=$3 WHERE clientID=$4
+	`
+	_, err := db.Exec(query,
+		algorithm.VWAP, algorithm.TWAP, algorithm.HFT, algorithm.ClientID)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	return nil
+}
+
 func DeleteClient(client *model.Client) error {
 	log.Println("DeleteClient")
 	db := createConnection()
@@ -218,6 +234,15 @@ func DeleteClient(client *model.Client) error {
 		return err
 	}
 	return nil
+}
+
+func GetActiveAlgorithms() {
+	log.Println("DeleteClient")
+	db := createConnection()
+	defer db.Close()
+	query := `
+		SELECT * FROM algorithm_status WHERE VHAP = TRUE OR TWAP = TRUE OR HFT = TRUE;
+	`
 }
 
 func DropAll() {
