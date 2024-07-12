@@ -118,8 +118,8 @@ func AddClient(client *model.Client) error {
 	//values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
 	query := `
 	WITH inserted_client AS (
-    INSERT INTO clients(clientName, version, image, cpu, memory, priority, needRestart, spawnedAt, createdAt, updatedAt)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    INSERT INTO clients(clientName, version, image, cpu, memory, priority, needRestart)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     RETURNING id
 	)
 	INSERT INTO algorithm_status(clientID)
@@ -128,7 +128,7 @@ func AddClient(client *model.Client) error {
 `
 
 	_, err := db.Query(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
-		client.Priority, client.NeedRestart, client.SpawnedAt, client.CreatedAt, client.UpdatedAt)
+		client.Priority, client.NeedRestart)
 	if err != nil {
 		return fmt.Errorf("error inserting client: %v", err)
 	}
@@ -209,7 +209,9 @@ func DeleteClient(client *model.Client) error {
 	log.Println("DeleteClient")
 	db := createConnection()
 	defer db.Close()
-	query := "DELETE FROM clients WHERE id = $1"
+	query := `
+		DELETE FROM clients WHERE id = $1;
+	`
 	_, err := db.Exec(query, client.ID)
 	if err != nil {
 		log.Fatal(err)
