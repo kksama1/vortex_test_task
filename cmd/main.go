@@ -2,44 +2,32 @@ package main
 
 import (
 	"fmt"
-	"github.com/joho/godotenv"
 	"github.com/robfig/cron/v3"
 	"log"
 	"net/http"
-	"os"
-	"strconv"
+	"vortex/config"
+	postgres "vortex/internal/db/postgre"
 	"vortex/internal/handlers"
 	"vortex/internal/pod_placeholder"
 )
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 
-	host := os.Getenv("DATABASE_HOST")
-	port, err := strconv.Atoi(os.Getenv("DATABASE_PORT"))
+	cfg, err := config.LoadConfig[config.DatabaseConfig]()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	database := os.Getenv("DATABASE_NAME")
-	username := os.Getenv("DATABASE_USERNAME")
-	password := os.Getenv("DATABASE_PASSWORD")
-
-	service := handlers.Service{}
-	service.DB.CreateConnection(host, port, database, username, password)
+	fmt.Println(cfg)
+	pool := postgres.CreateConnection(cfg.Host, cfg.Port, cfg.Database, cfg.Username, cfg.Password, cfg.Sslmode)
+	service := handlers.NewService(pool)
 	defer func() {
-		err := service.DB.CloseConnection()
+		err = service.DB.CloseConnection()
 		if err != nil {
 			log.Println(err)
 		}
 	}()
-	//service.DB.DropAll()
-	//service.DB.GetTables()
-	service.DB.SetUpDB()
-	service.DB.GetTables()
 
+	service.DB.SetUpDB()
 	podList := pod_placeholder.PodList{Pods: make([]pod_placeholder.PodPlaceholder, 0)}
 
 	c := cron.New()

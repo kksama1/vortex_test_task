@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"net/http"
 	postgres "vortex/internal/db/postgre"
 )
@@ -13,5 +14,11 @@ type ServiceHandler interface {
 }
 
 type Service struct {
-	DB postgres.PostgresDriver
+	DB *postgres.PostgresDriver
+}
+
+func NewService(pool *sql.DB) *Service {
+	return &Service{
+		DB: postgres.NewPostgresDriver(pool),
+	}
 }

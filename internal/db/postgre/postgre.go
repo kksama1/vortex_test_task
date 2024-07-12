@@ -12,7 +12,7 @@ import (
 )
 
 type DatabaseDriver interface {
-	CreateConnection(host string, port int, database, username, password string)
+	//CreateConnection(host string, port int, database, username, password string)
 	SetUpDB()
 	//GetTables()
 	AddClient(client *model.Client) error
@@ -28,40 +28,36 @@ type DatabaseDriver interface {
 }
 
 type PostgresDriver struct {
-	db *sql.DB
+	Pool *sql.DB
 }
 
-type pgInfo struct {
-	host     string
-	port     int
-	database string
-	username string
-	password string
+func NewPostgresDriver(pool *sql.DB) *PostgresDriver {
+	return &PostgresDriver{Pool: pool}
 }
 
 // createConnection performs connection to Db.
-func (p *PostgresDriver) CreateConnection(
+
+func CreateConnection(
 	host string,
 	port int,
 	database string,
 	username string,
 	password string,
-) {
-
+	sslmode string,
+) *sql.DB {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		host, port, username, password, database)
+		"password=%s dbname=%s sslmode=%s",
+		host, port, username, password, database, sslmode)
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		panic(err)
 	}
-	p.db = db
 	// Установка максимального количества открытых соединений
-	p.db.SetMaxOpenConns(15)
+	db.SetMaxOpenConns(15)
 	// Установка максимального количества соединений в пуле
-	p.db.SetMaxIdleConns(5)
+	db.SetMaxIdleConns(5)
 	// Установка максимального времени жизни соединения в пуле
-	p.db.SetConnMaxLifetime(time.Minute * 5)
+	db.SetConnMaxLifetime(time.Minute * 5)
 
 	err = db.Ping()
 	if err != nil {
@@ -69,6 +65,7 @@ func (p *PostgresDriver) CreateConnection(
 	} else {
 		log.Println("Connected to postgres!")
 	}
+	return db
 }
 
 func (p *PostgresDriver) SetUpDB() {
@@ -85,7 +82,7 @@ func (p *PostgresDriver) SetUpDB() {
 
 	createTableQuery := string(sqlBytes)
 
-	_, err = p.db.Exec(createTableQuery)
+	_, err = p.Pool.Exec(createTableQuery)
 	if err != nil {
 		panic(err)
 	}
@@ -102,14 +99,14 @@ func (p *PostgresDriver) SetUpDB() {
 
 	createTableQuery = string(sqlBytes)
 
-	_, err = p.db.Exec(createTableQuery)
+	_, err = p.Pool.Exec(createTableQuery)
 	if err != nil {
 		panic(err)
 	}
 }
 
 func (p *PostgresDriver) GetTables() {
-	rows, err := p.db.Query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
+	rows, err := p.Pool.Query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
 	if err != nil {
 		log.Println(err)
 		return
@@ -138,7 +135,7 @@ func (p *PostgresDriver) AddClient(client *model.Client) error {
 	SELECT id AS clientID
 	FROM inserted_client;
 `
-	_, err := p.db.Exec(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
+	_, err := p.Pool.Exec(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
 		client.Priority, client.NeedRestart)
 	if err != nil {
 		return fmt.Errorf("error inserting client: %v", err)
@@ -148,7 +145,7 @@ func (p *PostgresDriver) AddClient(client *model.Client) error {
 
 func (p *PostgresDriver) GetAllClients() ([]model.Client, error) {
 	var clients []model.Client
-	rows, err := p.db.Query("SELECT * FROM clients")
+	rows, err := p.Pool.Query("SELECT * FROM clients")
 	if err != nil {
 
 		return nil, fmt.Errorf("error while selecting all clients: %v", err)
@@ -171,7 +168,7 @@ func (p *PostgresDriver) GetAllClients() ([]model.Client, error) {
 func (p *PostgresDriver) GetAllAlgorithms() error {
 	var algorithms []model.Algorithm
 
-	rows, err := p.db.Query("SELECT * FROM algorithm_status")
+	rows, err := p.Pool.Query("SELECT * FROM algorithm_status")
 	if err != nil {
 		return fmt.Errorf("error while selecting all algorithms: %v", err)
 	}
@@ -193,7 +190,7 @@ func (p *PostgresDriver) UpdateClient(client *model.Client) error {
 	query := `UPDATE clients SET clientName=$1, version=$2, image=$3, cpu=$4,
                    memory=$5, priority=$6, needRestart=$7, updatedAt=$8 WHERE id=$9`
 
-	_, err := p.db.Exec(query,
+	_, err := p.Pool.Exec(query,
 		client.ClientName, client.Version, client.Image, client.CPU, client.Memory, client.Priority, client.NeedRestart,
 		time.Now(), client.ID)
 	if err != nil {
@@ -206,7 +203,7 @@ func (p *PostgresDriver) UpdateAlgorithmStatus(algorithm model.Algorithm) error 
 	query := `
 	UPDATE algorithm_status SET vwap=$1, twap=$2, hft=$3 WHERE clientID=$4
 	`
-	_, err := p.db.Exec(query,
+	_, err := p.Pool.Exec(query,
 		algorithm.VWAP, algorithm.TWAP, algorithm.HFT, algorithm.ClientID)
 	if err != nil {
 		return fmt.Errorf("error while updating algorithm status: %v", err)
@@ -219,7 +216,7 @@ func (p *PostgresDriver) DeleteClient(client *model.Client) error {
 	query := `
 		DELETE FROM clients WHERE id = $1;
 	`
-	_, err := p.db.Exec(query, client.ID)
+	_, err := p.Pool.Exec(query, client.ID)
 	if err != nil {
 		return fmt.Errorf("error while deleting client: %v", err)
 	}
@@ -231,7 +228,7 @@ func (p *PostgresDriver) GetActiveAlgorithms() ([]model.Algorithm, error) {
 		SELECT * FROM algorithm_status WHERE VWAP = TRUE OR TWAP = TRUE OR HFT = TRUE;
 	`
 	var algorithms []model.Algorithm
-	rows, err := p.db.Query(query)
+	rows, err := p.Pool.Query(query)
 	if err != nil {
 		log.Println("SELECT ERR")
 		return nil, fmt.Errorf("error while selecting active algorithms: %v", err)
@@ -256,7 +253,7 @@ func (p *PostgresDriver) GetInActiveAlgorithms() ([]model.Algorithm, error) {
 		SELECT * FROM algorithm_status WHERE VWAP = FALSE AND TWAP = FALSE AND HFT = FALSE;
 	`
 	var algorithms []model.Algorithm
-	rows, err := p.db.Query(query)
+	rows, err := p.Pool.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error while selecting inactive algorithms: %v", err)
 	}
@@ -288,7 +285,7 @@ func (p *PostgresDriver) GetInActiveAlgorithms() ([]model.Algorithm, error) {
 //}
 
 func (p *PostgresDriver) CloseConnection() error {
-	err := p.db.Close()
+	err := p.Pool.Close()
 	if err != nil {
 		return fmt.Errorf("error while closing conection: %v", err)
 	}
