@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS algorithm_status (
     ID SERIAL PRIMARY KEY,
-    ClientID SERIAL references clients(ID),
+    ClientID SERIAL references clients(ID) UNIQUE,
     VWAP BOOLEAN DEFAULT FALSE,
     TWAP BOOLEAN DEFAULT FALSE,
     HFT BOOLEAN DEFAULT FALSE

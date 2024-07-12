@@ -113,20 +113,22 @@ func GetTables() {
 func AddClient(client *model.Client) error {
 	db := createConnection()
 	defer db.Close()
-	query := `INSERT INTO clients(clientName, version, image, cpu, memory, priority, needRestart,
-                    spawnedAt, createdAt, updatedAt)
-	values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+	//query := `INSERT INTO clients(clientName, version, image, cpu, memory, priority, needRestart,
+	//                spawnedAt, createdAt, updatedAt)
+	//values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
+	query := `
+	WITH inserted_client AS (
+    INSERT INTO clients(clientName, version, image, cpu, memory, priority, needRestart, spawnedAt, createdAt, updatedAt)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    RETURNING id
+	)
+	INSERT INTO algorithm_status(clientID)
+	SELECT id AS clientID
+	FROM inserted_client;
+`
 
 	_, err := db.Query(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
 		client.Priority, client.NeedRestart, client.SpawnedAt, client.CreatedAt, client.UpdatedAt)
-	if err != nil {
-		return fmt.Errorf("error inserting client: %v", err)
-	}
-
-	query = `INSERT INTO algorithm_status(clientID)
-values ($1)`
-
-	_, err = db.Query(query, client.ID)
 	if err != nil {
 		return fmt.Errorf("error inserting client: %v", err)
 	}
@@ -140,7 +142,6 @@ func GetAllClients() ([]model.Client, error) {
 	defer db.Close()
 	var clients []model.Client
 	rows, err := db.Query("SELECT * FROM clients")
-	log.Println("Rows: ", rows)
 	if err != nil {
 		log.Println("SELECT ERR")
 		return nil, err
@@ -168,7 +169,6 @@ func GetAllAlgorithms() error {
 	var algorithms []model.Algorithm
 
 	rows, err := db.Query("SELECT * FROM algorithm_status")
-	log.Println("Rows: ", rows)
 	if err != nil {
 		log.Println("SELECT ERR")
 		return err
@@ -181,7 +181,7 @@ func GetAllAlgorithms() error {
 		if err != nil {
 			return err
 		}
-		//log.Println("Client: ", client)
+		log.Println("algorithm: ", algorithm)
 		algorithms = append(algorithms, algorithm)
 	}
 	log.Println("Алгоритмы:", algorithms)
