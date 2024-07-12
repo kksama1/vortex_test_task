@@ -7,6 +7,8 @@ import (
 	"vortex/internal/model"
 )
 
+// UpdateClient method is a handler that reads the body of the POST request
+// and passes its contents to method which modifies specified Client record.
 func (s *Service) UpdateClient(w http.ResponseWriter, r *http.Request) {
 	var client model.Client
 

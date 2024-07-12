@@ -7,6 +7,9 @@ import (
 	"vortex/internal/model"
 )
 
+// The DeleteClient method is a handler that reads the body of the POST request
+// and passes its contents to method which deletes specified "client" and
+// "algorithm" records.
 func (s *Service) DeleteClient(w http.ResponseWriter, r *http.Request) {
 	var client model.Client
 

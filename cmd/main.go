@@ -17,7 +17,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(cfg)
 	pool := postgres.CreateConnection(cfg.Host, cfg.Port, cfg.Database, cfg.Username, cfg.Password, cfg.Sslmode)
 	service := handlers.NewService(pool)
 	defer func() {
@@ -27,11 +26,12 @@ func main() {
 		}
 	}()
 
+	//service.DB.DropAll()
 	service.DB.SetUpDB()
 	podList := pod_placeholder.PodList{Pods: make([]pod_placeholder.PodPlaceholder, 0)}
 
 	c := cron.New()
-	_, err = c.AddFunc("@every 30s", func() {
+	_, err = c.AddFunc("@every 5m", func() {
 		activeAlgorithms, err := service.DB.GetActiveAlgorithms()
 		if err != nil {
 			log.Println(err)

@@ -1,3 +1,5 @@
+// Package config reads data from ".env" file and provides data into predefined
+// config structure. If u need to specify config structure do it within this package.
 package config
 
 import (
@@ -7,6 +9,8 @@ import (
 	"log"
 )
 
+// LoadConfig  func reads data from ".env" file. Config  uses generic to provide more flexibility by generating
+// specific config structures which depends on generic type.
 func LoadConfig[Config DatabaseConfig]() (*Config, error) {
 	err := godotenv.Load(".env")
 	if err != nil {

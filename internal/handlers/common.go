@@ -1,3 +1,4 @@
+// Package handlers provides http request handlers...
 package handlers
 
 import (
@@ -12,6 +13,8 @@ type ServiceHandler interface {
 	DeleteClient(w http.ResponseWriter, r *http.Request)
 	UpdateAlgorithmStatus(w http.ResponseWriter, r *http.Request)
 }
+
+var _ ServiceHandler = (*Service)(nil)
 
 type Service struct {
 	DB *postgres.PostgresDriver

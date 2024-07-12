@@ -1,3 +1,5 @@
+// Package postgres provides everything to serve functionality that needed from postgres to solve
+// given task.
 package postgres
 
 import (
@@ -16,10 +18,10 @@ type DatabaseDriver interface {
 	SetUpDB()
 	//GetTables()
 	AddClient(client *model.Client) error
-	GetAllClients() ([]model.Client, error)
+	//GetAllClients() ([]model.Client, error)
 	GetAllAlgorithms() error
 	UpdateClient(client *model.Client) error
-	UpdateAlgorithmStatus(algorithm model.Algorithm) error
+	UpdateAlgorithmStatus(algorithm *model.Algorithm) error
 	DeleteClient(client *model.Client) error
 	GetActiveAlgorithms() ([]model.Algorithm, error)
 	GetInActiveAlgorithms() ([]model.Algorithm, error)
@@ -27,16 +29,20 @@ type DatabaseDriver interface {
 	CloseConnection() error
 }
 
+var _ DatabaseDriver = (*PostgresDriver)(nil)
+
 type PostgresDriver struct {
 	Pool *sql.DB
 }
 
+// NewPostgresDriver is the constructor that  pointer to PostgresDriver instance.
 func NewPostgresDriver(pool *sql.DB) *PostgresDriver {
 	return &PostgresDriver{Pool: pool}
 }
 
 // createConnection performs connection to Db.
 
+// CreateConnection returns *sql.DB connection pool to postgres from given credentials.
 func CreateConnection(
 	host string,
 	port int,
@@ -52,11 +58,9 @@ func CreateConnection(
 	if err != nil {
 		panic(err)
 	}
-	// Установка максимального количества открытых соединений
+
 	db.SetMaxOpenConns(15)
-	// Установка максимального количества соединений в пуле
 	db.SetMaxIdleConns(5)
-	// Установка максимального времени жизни соединения в пуле
 	db.SetConnMaxLifetime(time.Minute * 5)
 
 	err = db.Ping()
@@ -68,6 +72,8 @@ func CreateConnection(
 	return db
 }
 
+// SetUpDB methods provides migration to postgres from given sql scripts.
+// It creates "clients" and "algorithm_status" tables.
 func (p *PostgresDriver) SetUpDB() {
 	sqlFile, err := os.Open("/usr/local/src/db/sql/client.sql")
 	if err != nil {
@@ -105,26 +111,32 @@ func (p *PostgresDriver) SetUpDB() {
 	}
 }
 
-func (p *PostgresDriver) GetTables() {
-	rows, err := p.Pool.Query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer rows.Close()
+//func (p *PostgresDriver) GetTables() {
+//	rows, err := p.Pool.Query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")
+//	if err != nil {
+//		log.Println(err)
+//		return
+//	}
+//	defer rows.Close()
+//
+//	// Чтение результатов запроса
+//	for rows.Next() {
+//		var tableName string
+//		err := rows.Scan(&tableName)
+//		if err != nil {
+//			log.Println(err)
+//			return
+//		}
+//	}
+//}
 
-	// Чтение результатов запроса
-	for rows.Next() {
-		var tableName string
-		err := rows.Scan(&tableName)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	}
-}
-
+// AddClient methods inserts new client into "clients" table. Also creates new
+// algorithm record in "algorithm_status" table.
 func (p *PostgresDriver) AddClient(client *model.Client) error {
+	tx, err := p.Pool.Begin()
+	if err != nil {
+		return err
+	}
 	query := `
 	WITH inserted_client AS (
     INSERT INTO clients(clientName, version, image, cpu, memory, priority, needRestart)
@@ -135,36 +147,39 @@ func (p *PostgresDriver) AddClient(client *model.Client) error {
 	SELECT id AS clientID
 	FROM inserted_client;
 `
-	_, err := p.Pool.Exec(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
+	_, err = tx.Exec(query, client.ClientName, client.Version, client.Image, client.CPU, client.Memory,
 		client.Priority, client.NeedRestart)
 	if err != nil {
+		tx.Rollback()
 		return fmt.Errorf("error inserting client: %v", err)
 	}
-	return nil
+	return tx.Commit()
 }
 
-func (p *PostgresDriver) GetAllClients() ([]model.Client, error) {
-	var clients []model.Client
-	rows, err := p.Pool.Query("SELECT * FROM clients")
-	if err != nil {
+// GetAllClients method returns all records in the table "clients".
+//func (p *PostgresDriver) GetAllClients() ([]model.Client, error) {
+//	var clients []model.Client
+//	rows, err := p.Pool.Query("SELECT * FROM clients")
+//	if err != nil {
+//
+//		return nil, fmt.Errorf("error while selecting all clients: %v", err)
+//	}
+//	defer rows.Close()
+//
+//	for rows.Next() {
+//		var client model.Client
+//		err = rows.Scan(&client.ID, &client.ClientName, &client.Version, &client.Image, &client.CPU, &client.Memory,
+//			&client.Priority, &client.NeedRestart, &client.SpawnedAt, &client.CreatedAt, &client.UpdatedAt)
+//		if err != nil {
+//			return nil, fmt.Errorf("error while scanning rows: %v", err)
+//		}
+//		clients = append(clients, client)
+//	}
+//	log.Println("Клиенты:", clients)
+//	return clients, nil
+//}
 
-		return nil, fmt.Errorf("error while selecting all clients: %v", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var client model.Client
-		err = rows.Scan(&client.ID, &client.ClientName, &client.Version, &client.Image, &client.CPU, &client.Memory,
-			&client.Priority, &client.NeedRestart, &client.SpawnedAt, &client.CreatedAt, &client.UpdatedAt)
-		if err != nil {
-			return nil, fmt.Errorf("error while scanning rows: %v", err)
-		}
-		clients = append(clients, client)
-	}
-	log.Println("Клиенты:", clients)
-	return clients, nil
-}
-
+// GetAllAlgorithms method returns all records in the table "algorithm_status".
 func (p *PostgresDriver) GetAllAlgorithms() error {
 	var algorithms []model.Algorithm
 
@@ -185,6 +200,7 @@ func (p *PostgresDriver) GetAllAlgorithms() error {
 	return nil
 }
 
+// UpdateClient method updates clients record via its id.
 func (p *PostgresDriver) UpdateClient(client *model.Client) error {
 
 	query := `UPDATE clients SET clientName=$1, version=$2, image=$3, cpu=$4,
@@ -199,7 +215,8 @@ func (p *PostgresDriver) UpdateClient(client *model.Client) error {
 	return nil
 }
 
-func (p *PostgresDriver) UpdateAlgorithmStatus(algorithm model.Algorithm) error {
+// UpdateAlgorithmStatus method updates Algorithm non unique fields via its clientID.
+func (p *PostgresDriver) UpdateAlgorithmStatus(algorithm *model.Algorithm) error {
 	query := `
 	UPDATE algorithm_status SET vwap=$1, twap=$2, hft=$3 WHERE clientID=$4
 	`
@@ -212,6 +229,9 @@ func (p *PostgresDriver) UpdateAlgorithmStatus(algorithm model.Algorithm) error 
 	return nil
 }
 
+// The DeleteClient method deletes a client record from the "clients" table. Also,
+// because it is a foreign key for the table "algorithm_status" it also deletes the
+// algorithm record associated with the given user.
 func (p *PostgresDriver) DeleteClient(client *model.Client) error {
 	query := `
 		DELETE FROM clients WHERE id = $1;
@@ -223,9 +243,10 @@ func (p *PostgresDriver) DeleteClient(client *model.Client) error {
 	return nil
 }
 
+// GetActiveAlgorithms methods gets slice of Algorithms records where at least one of fields  VWAP, TWAP or TWAP is true.
 func (p *PostgresDriver) GetActiveAlgorithms() ([]model.Algorithm, error) {
 	query := `
-		SELECT * FROM algorithm_status WHERE VWAP = TRUE OR TWAP = TRUE OR HFT = TRUE;
+		SELECT * FROM algorithm_status WHERE VWAP = TRUE OR TWAP = TRUE OR TWAP = TRUE;
 	`
 	var algorithms []model.Algorithm
 	rows, err := p.Pool.Query(query)
@@ -247,6 +268,7 @@ func (p *PostgresDriver) GetActiveAlgorithms() ([]model.Algorithm, error) {
 	return algorithms, nil
 }
 
+// GetInActiveAlgorithms methods gets slice of Algorithms records where none of fields  VWAP, TWAP or TWAP are true.
 func (p *PostgresDriver) GetInActiveAlgorithms() ([]model.Algorithm, error) {
 	log.Println("GetInActiveAlgorithms")
 	query := `
@@ -271,19 +293,21 @@ func (p *PostgresDriver) GetInActiveAlgorithms() ([]model.Algorithm, error) {
 	return algorithms, nil
 }
 
+// DropAll methods drops "algorithm_status" amd "clients" tables.
 //func (p *PostgresDriver) DropAll() {
-//	_, err := p.db.Exec("DROP TABLE algorithm_status")
+//	_, err := p.Pool.Exec("DROP TABLE algorithm_status")
 //	if err != nil {
 //		log.Println(err)
 //		return
 //	}
-//	_, err = p.db.Exec("DROP TABLE clients")
+//	_, err = p.Pool.Exec("DROP TABLE clients")
 //	if err != nil {
 //		log.Println(err)
 //		return
 //	}
 //}
 
+// CloseConnection method closes connection pool.
 func (p *PostgresDriver) CloseConnection() error {
 	err := p.Pool.Close()
 	if err != nil {

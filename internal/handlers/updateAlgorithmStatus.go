@@ -7,6 +7,8 @@ import (
 	"vortex/internal/model"
 )
 
+// UpdateAlgorithmStatus method is a handler that reads the body of the POST request
+// and passes its contents to method which modifies specified Algorithm.
 func (s *Service) UpdateAlgorithmStatus(w http.ResponseWriter, r *http.Request) {
 	var Algorithm model.Algorithm
 
@@ -15,7 +17,7 @@ func (s *Service) UpdateAlgorithmStatus(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if err := s.DB.UpdateAlgorithmStatus(Algorithm); err != nil {
+	if err := s.DB.UpdateAlgorithmStatus(&Algorithm); err != nil {
 		log.Println(err)
 		return
 	}
